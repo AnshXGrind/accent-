@@ -196,6 +196,11 @@
     </main>
 
     <script>
+        // VERCEL MODE FLAG
+        // Set this to true if deploying to Vercel (Serverless)
+        // Set to false if deploying to Render/Railway (WebSocket supported)
+        const USE_REST_API = true; 
+
         const socket = io();
         let mediaRecorder;
         let audioContext;
@@ -216,13 +221,32 @@
             log(`Target accent changed to: ${e.target.value}`);
         });
 
+        // Socket.IO Handlers (Only used if USE_REST_API is false)
         socket.on('connect', () => {
-            log('Connected to server.');
+            if (!USE_REST_API) log('Connected to server (WebSocket).');
         });
 
         socket.on('audio_response', (data) => {
+            if (!USE_REST_API) handleServerResponse(data);
+        });
+
+        function handleServerResponse(data) {
             // Play back the audio chunk
-            playAudioChunk(data.audio);
+            // If data.audio is ArrayBuffer (Socket) use directly
+            // If data.audio_b64 is string (REST), convert first
+            
+            let audioData = data.audio;
+            if (data.audio_b64) {
+                const binaryString = window.atob(data.audio_b64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                audioData = bytes.buffer;
+            }
+
+            playAudioChunk(audioData);
             
             // Update UI with detection results
             detectedAccent.textContent = data.detected_accent;
@@ -232,7 +256,7 @@
             setTimeout(() => {
                 outputStatus.textContent = "Waiting for audio...";
             }, 1000);
-        });
+        }
 
         function log(message) {
             const div = document.createElement('div');
@@ -249,18 +273,39 @@
                 mediaRecorder = new MediaRecorder(stream);
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-                mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0 && socket.connected) {
-                        // Send blob to server
-                        const reader = new FileReader();
-                        reader.onload = function() {
-                            const arrayBuffer = this.result;
-                            socket.emit('audio_stream', {
-                                audio: arrayBuffer,
-                                target_accent: targetAccentSelect.value
-                            });
-                        };
-                        reader.readAsArrayBuffer(event.data);
+                mediaRecorder.ondataavailable = async (event) => {
+                    if (event.data.size > 0) {
+                        if (USE_REST_API) {
+                            // VERCEL MODE: Send via HTTP POST
+                            const formData = new FormData();
+                            formData.append('audio', event.data);
+                            formData.append('target_accent', targetAccentSelect.value);
+
+                            try {
+                                const response = await fetch('/api/process_chunk', {
+                                    method: 'POST',
+                                    body: formData
+                                });
+                                const data = await response.json();
+                                if (data.audio_b64) {
+                                    handleServerResponse(data);
+                                }
+                            } catch (e) {
+                                console.error("REST API Error:", e);
+                            }
+
+                        } else if (socket.connected) {
+                            // RENDER MODE: Send via WebSocket
+                            const reader = new FileReader();
+                            reader.onload = function() {
+                                const arrayBuffer = this.result;
+                                socket.emit('audio_stream', {
+                                    audio: arrayBuffer,
+                                    target_accent: targetAccentSelect.value
+                                });
+                            };
+                            reader.readAsArrayBuffer(event.data);
+                        }
                     }
                 };
 
@@ -273,7 +318,7 @@
                 stopBtn.disabled = false;
                 micIcon.classList.add('active');
                 inputStatus.textContent = "Recording...";
-                log("Microphone activated. Streaming started.");
+                log(`Microphone activated. Streaming started (${USE_REST_API ? 'REST Mode' : 'Socket Mode'}).`);
 
             } catch (err) {
                 console.error("Error accessing microphone:", err);
