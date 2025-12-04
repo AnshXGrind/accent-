@@ -29,41 +29,41 @@ const openai = new OpenAI({
 // Map frontend selections to Murf Voice IDs.
 // NOTE: These are PLACEHOLDER IDs. You must replace them with actual Voice IDs from your Murf dashboard.
 const VOICE_MAP = {
-  'US': {
+  'English (US)': {
     'Friendly': 'en-US-terra', 
     'Tutor': 'en-US-marcus',
     'Call Center': 'en-US-natalie',
     'Professional': 'en-US-ryan'
   },
-  'UK': {
+  'English (UK)': {
     'Friendly': 'en-UK-hazel',
     'Tutor': 'en-UK-gabriel',
     'Call Center': 'en-UK-liam',
     'Professional': 'en-UK-freddie'
   },
-  'Indian English': {
-    'Friendly': 'en-IN-aravind',
-    'Tutor': 'en-IN-anjali',
-    'Call Center': 'en-IN-kabir',
-    'Professional': 'en-IN-tara'
+  'Spanish': {
+    'Friendly': 'es-MX-lucia', // Placeholder
+    'Tutor': 'es-ES-alvaro',
+    'Call Center': 'es-MX-diana',
+    'Professional': 'es-ES-antonio'
   },
-  'Australian English': {
-    'Friendly': 'en-AU-claire',
-    'Tutor': 'en-AU-jack',
-    'Call Center': 'en-AU-layla',
-    'Professional': 'en-AU-oliver'
+  'French': {
+    'Friendly': 'fr-FR-chloe',
+    'Tutor': 'fr-FR-leo',
+    'Call Center': 'fr-FR-julie',
+    'Professional': 'fr-FR-louis'
   },
-  'Neutral': {
-    'Friendly': 'en-US-terra', // Fallback to US
-    'Tutor': 'en-US-marcus',
-    'Call Center': 'en-US-natalie',
-    'Professional': 'en-US-ryan'
+  'German': {
+    'Friendly': 'de-DE-amelie',
+    'Tutor': 'de-DE-elias',
+    'Call Center': 'de-DE-sophie',
+    'Professional': 'de-DE-jonas'
   }
 };
 
 // --- ENDPOINTS ---
 
-// 1. STT Endpoint
+// 1. STT Endpoint (Legacy/Backup)
 app.post('/api/stt', upload.single('audio'), async (req, res) => {
   try {
     if (!req.file) {
@@ -97,7 +97,7 @@ app.post('/api/stt', upload.single('audio'), async (req, res) => {
 // 2. LLM Endpoint
 app.post('/api/llm', async (req, res) => {
   try {
-    const { userText, mode, language, accent } = req.body;
+    const { userText, mode, targetLanguage } = req.body;
 
     if (!userText) {
       return res.status(400).json({ error: 'No text provided' });
@@ -107,7 +107,7 @@ app.post('/api/llm', async (req, res) => {
     let systemPrompt = `You are PolyVoice, a helpful voice assistant.
     - Keep responses natural and short (maximum 2-3 sentences).
     - Your current persona is: ${mode} (Tone: ${getToneDescription(mode)}).
-    - The user is speaking ${language || 'English'} with a ${accent || 'Neutral'} accent context.
+    - Respond in the following language: ${targetLanguage || 'English'}.
     - If the user asks for pronunciation help, strictly follow this format:
       Here’s how it sounds:
       🇺🇸 US: [Phonetic/Description]
@@ -142,13 +142,13 @@ app.post('/api/llm', async (req, res) => {
 // 3. TTS Endpoint (Murf)
 app.post('/api/tts', async (req, res) => {
   try {
-    const { text, accent, style } = req.body;
+    const { text, targetLanguage, style } = req.body;
 
     if (!text) return res.status(400).json({ error: 'No text provided' });
 
     // Resolve Voice ID
-    const accentMap = VOICE_MAP[accent] || VOICE_MAP['US'];
-    const voiceId = accentMap[style] || accentMap['Professional'];
+    const langMap = VOICE_MAP[targetLanguage] || VOICE_MAP['English (US)'];
+    const voiceId = langMap[style] || langMap['Professional'];
 
     console.log(`Generating TTS for: "${text}" with VoiceID: ${voiceId}`);
 

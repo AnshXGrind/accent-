@@ -3,7 +3,8 @@ import axios from 'axios';
 import './App.css';
 
 function App() {
-  const [accent, setAccent] = useState('US');
+  const [inputLanguage, setInputLanguage] = useState('en-US');
+  const [targetLanguage, setTargetLanguage] = useState('English (US)');
   const [style, setStyle] = useState('Friendly');
   const [userText, setUserText] = useState('');
   const [aiText, setAiText] = useState('');
@@ -11,8 +12,14 @@ function App() {
   const [status, setStatus] = useState('Ready');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [autoGenerate, setAutoGenerate] = useState(false);
 
   const audioPlayerRef = useRef(null);
+  const autoGenerateRef = useRef(autoGenerate);
+
+  useEffect(() => {
+    autoGenerateRef.current = autoGenerate;
+  }, [autoGenerate]);
 
   // Determine API Base URL
   // In development: uses Vite proxy (redirects /api -> localhost:5000)
@@ -26,9 +33,9 @@ function App() {
     }
 
     const recognition = new window.webkitSpeechRecognition();
-    recognition.lang = "en-US";
+    recognition.lang = inputLanguage;
     recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.interimResults = true; // Enable interim results for visual feedback
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -36,10 +43,23 @@ function App() {
     };
 
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
+      const transcript = Array.from(event.results)
+        .map(result => result[0])
+        .map(result => result.transcript)
+        .join('');
+      
       setUserText(transcript);
-      setStatus('Speech recognized. Ready to generate.');
-      setIsListening(false);
+      
+      if (event.results[0].isFinal) {
+        setStatus('Speech recognized.');
+        setIsListening(false);
+        
+        if (autoGenerateRef.current) {
+          handleGenerate(transcript);
+        } else {
+          setStatus('Speech recognized. Ready to generate.');
+        }
+      }
     };
 
     recognition.onerror = (event) => {
@@ -55,8 +75,10 @@ function App() {
     recognition.start();
   };
 
-  const handleGenerate = async () => {
-    if (!userText) {
+  const handleGenerate = async (textOverride) => {
+    const textToProcess = typeof textOverride === 'string' ? textOverride : userText;
+
+    if (!textToProcess) {
       alert('Please speak or enter text first!');
       return;
     }
@@ -69,10 +91,9 @@ function App() {
     try {
       // 1. LLM (Skipping server-side STT)
       const llmResponse = await axios.post(`${API_BASE_URL}/api/llm`, {
-        userText: userText,
+        userText: textToProcess,
         mode: style,
-        language: 'English',
-        accent: accent
+        targetLanguage: targetLanguage
       });
 
       const generatedText = llmResponse.data.text;
@@ -82,7 +103,7 @@ function App() {
       // 2. TTS
       const ttsResponse = await axios.post(`${API_BASE_URL}/api/tts`, {
         text: generatedText,
-        accent: accent,
+        targetLanguage: targetLanguage,
         style: style
       });
 
@@ -107,71 +128,109 @@ function App() {
   };
 
   return (
-    <div className="container">
-      <h1>PolyVoice 🎙️</h1>
-      <p>AI Voice Assistant with Accent & Persona Control</p>
+    <div className="app-container">
+      <div className="glass-card">
+        <header>
+          <h1>PolyVoice <span className="pulse-icon">🎙️</span></h1>
+          <p>AI Voice Assistant • Translate • Speak</p>
+        </header>
 
-      <div className="controls">
-        <div className="control-group">
-          <label>Accent</label>
-          <select value={accent} onChange={(e) => setAccent(e.target.value)}>
-            <option value="Neutral">Neutral</option>
-            <option value="US">US English</option>
-            <option value="UK">UK English</option>
-            <option value="Indian English">Indian English</option>
-            <option value="Australian English">Australian English</option>
-          </select>
+        <div className="controls-grid">
+          <div className="control-group">
+            <label>Input Language</label>
+            <select value={inputLanguage} onChange={(e) => setInputLanguage(e.target.value)}>
+              <option value="en-US">English (US)</option>
+              <option value="en-GB">English (UK)</option>
+              <option value="es-ES">Spanish</option>
+              <option value="fr-FR">French</option>
+              <option value="de-DE">German</option>
+              <option value="hi-IN">Hindi</option>
+            </select>
+          </div>
+
+          <div className="control-group">
+            <label>Output Language</label>
+            <select value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)}>
+              <option value="English (US)">English (US)</option>
+              <option value="English (UK)">English (UK)</option>
+              <option value="Spanish">Spanish</option>
+              <option value="French">French</option>
+              <option value="German">German</option>
+            </select>
+          </div>
+
+          <div className="control-group">
+            <label>Persona</label>
+            <select value={style} onChange={(e) => setStyle(e.target.value)}>
+              <option value="Friendly">Friendly</option>
+              <option value="Tutor">Tutor</option>
+              <option value="Call Center">Call Center</option>
+              <option value="Professional">Professional</option>
+            </select>
+          </div>
+
+          <div className="control-group toggle-group">
+            <label>Auto-Generate</label>
+            <label className="switch">
+              <input 
+                type="checkbox" 
+                checked={autoGenerate} 
+                onChange={(e) => setAutoGenerate(e.target.checked)} 
+              />
+              <span className="slider round"></span>
+            </label>
+          </div>
         </div>
 
-        <div className="control-group">
-          <label>Voice Style</label>
-          <select value={style} onChange={(e) => setStyle(e.target.value)}>
-            <option value="Friendly">Friendly</option>
-            <option value="Tutor">Tutor</option>
-            <option value="Call Center">Call Center</option>
-            <option value="Professional">Professional</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="recorder-section">
-        <button 
-          className={`record-btn ${isListening ? 'listening' : ''}`}
-          onClick={startListening}
-          disabled={isListening || isProcessing}
-        >
-          {isListening ? 'Listening...' : '🎤 Start Speaking'}
-        </button>
-        <p className="status-log">{status}</p>
-      </div>
-
-      <button 
-        className="generate-btn" 
-        onClick={handleGenerate} 
-        disabled={isProcessing || !userText}
-      >
-        {isProcessing ? 'Processing...' : 'Generate Response'}
-      </button>
-
-      <div className="display-area">
-        <div className="text-box">
-          <h3>You said:</h3>
-          <p>{userText || '...'}</p>
+        <div className="recorder-section">
+          <div className={`wave-container ${isListening ? 'active' : ''}`}>
+            <div className="wave"></div>
+            <div className="wave"></div>
+            <div className="wave"></div>
+          </div>
+          
+          <button 
+            className={`record-btn ${isListening ? 'listening' : ''}`}
+            onClick={startListening}
+            disabled={isListening || isProcessing}
+          >
+            {isListening ? 'Listening...' : '🎤 Tap to Speak'}
+          </button>
+          <p className="status-log">{status}</p>
         </div>
 
-        <div className="text-box">
-          <h3>PolyVoice Answer:</h3>
-          <p style={{ whiteSpace: 'pre-wrap' }}>{aiText || '...'}</p>
+        <div className="action-section">
+          <button 
+            className="generate-btn" 
+            onClick={handleGenerate} 
+            disabled={isProcessing || !userText}
+          >
+            {isProcessing ? 'Processing...' : '✨ Generate Response'}
+          </button>
         </div>
 
-        {audioUrl && (
-          <audio 
-            ref={audioPlayerRef} 
-            controls 
-            className="audio-player" 
-            src={audioUrl}
-          />
-        )}
+        <div className="display-area">
+          <div className="text-box user-box">
+            <h3>You said:</h3>
+            <p>{userText || '...'}</p>
+          </div>
+
+          <div className="text-box ai-box">
+            <h3>PolyVoice Answer:</h3>
+            <p>{aiText || '...'}</p>
+          </div>
+
+          {audioUrl && (
+            <div className="audio-wrapper">
+              <audio 
+                ref={audioPlayerRef} 
+                controls 
+                className="audio-player" 
+                src={audioUrl}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
