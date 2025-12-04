@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Accent Equalizer - One Voice. Every Accent.</title>
+    <title>Accent Equalizer - Real-time</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
         :root {
             --primary-color: #4a90e2;
@@ -11,6 +12,7 @@
             --text-color: #333;
             --accent-color: #2c3e50;
             --success-color: #27ae60;
+            --danger-color: #e74c3c;
         }
 
         body {
@@ -29,335 +31,288 @@
             background-color: var(--accent-color);
             color: white;
             width: 100%;
-            padding: 2rem 0;
+            padding: 1.5rem 0;
             text-align: center;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
-        h1 {
-            margin: 0;
-            font-size: 2.5rem;
-            font-weight: 300;
-        }
-
-        .tagline {
-            font-size: 1.1rem;
-            opacity: 0.8;
-            margin-top: 0.5rem;
-        }
+        h1 { margin: 0; font-size: 2rem; font-weight: 300; }
+        .tagline { font-size: 1rem; opacity: 0.8; margin-top: 0.5rem; }
 
         main {
-            width: 90%;
-            max-width: 800px;
+            width: 95%;
+            max-width: 1000px;
             background: white;
-            margin-top: -30px;
+            margin-top: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-
-        .control-panel {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        label {
-            font-weight: 600;
-            color: var(--accent-color);
-        }
-
-        .file-upload-wrapper {
-            border: 2px dashed #ccc;
-            padding: 2rem;
-            text-align: center;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: border-color 0.3s;
-        }
-
-        .file-upload-wrapper:hover {
-            border-color: var(--primary-color);
-        }
-
-        select, input[type="file"] {
-            padding: 0.8rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 1rem;
-        }
-
-        .toggle-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-top: 0.5rem;
-        }
-
-        /* Toggle Switch */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .slider {
-            background-color: var(--primary-color);
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-
-        .btn-primary {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 1rem;
-            font-size: 1.2rem;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            font-weight: bold;
-            margin-top: 1rem;
-        }
-
-        .btn-primary:hover {
-            background-color: #357abd;
-        }
-
-        .btn-primary:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-
-        .results-section {
-            border-top: 1px solid #eee;
-            padding-top: 2rem;
-            display: none; /* Hidden by default */
-        }
-
-        .status-log {
-            background-color: #f8f9fa;
-            padding: 1rem;
-            border-radius: 4px;
-            font-family: monospace;
-            margin-bottom: 1.5rem;
-            border-left: 4px solid var(--primary-color);
-        }
-
-        .audio-comparison {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 2rem;
         }
 
-        .audio-player {
+        .panel {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             text-align: center;
         }
 
-        .audio-player h3 {
+        .panel h2 { color: var(--accent-color); margin-bottom: 1rem; }
+
+        .mic-icon {
+            font-size: 4rem;
+            color: #ccc;
+            margin: 1rem 0;
+            transition: color 0.3s;
+        }
+
+        .mic-icon.active { color: var(--danger-color); animation: pulse 1.5s infinite; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .controls {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .btn-start { background-color: var(--success-color); color: white; }
+        .btn-start:hover { background-color: #219150; }
+        
+        .btn-stop { background-color: var(--danger-color); color: white; }
+        .btn-stop:hover { background-color: #c0392b; }
+
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        select {
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
             font-size: 1rem;
-            margin-bottom: 0.5rem;
+            margin-left: 1rem;
+        }
+
+        .status-display {
+            margin-top: 1rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            min-height: 1.5em;
+        }
+
+        .detected-accent {
+            font-size: 1.2rem;
             color: var(--accent-color);
+            margin-top: 0.5rem;
+            font-weight: bold;
         }
 
-        audio {
-            width: 100%;
+        .log-area {
+            grid-column: 1 / -1;
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            height: 150px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            text-align: left;
         }
 
-        @media (max-width: 600px) {
-            .audio-comparison {
-                grid-template-columns: 1fr;
-            }
-        }
+        .log-entry { margin-bottom: 0.5rem; border-bottom: 1px solid #eee; padding-bottom: 0.2rem; }
+        .log-time { color: #888; font-size: 0.8rem; margin-right: 0.5rem; }
+
     </style>
 </head>
 <body>
 
     <header>
-        <h1>Accent Equalizer</h1>
-        <div class="tagline">One Voice. Every Accent.</div>
+        <h1>Accent Equalizer Live</h1>
+        <div class="tagline">Real-time Accent Detection & Conversion</div>
     </header>
 
     <main>
-        <div class="control-panel">
-            <div class="form-group">
-                <label for="audioFile">1. Upload Audio</label>
-                <div class="file-upload-wrapper" onclick="document.getElementById('audioFile').click()">
-                    <p id="fileNameDisplay">Drag & Drop or Click to Upload (.wav, .mp3)</p>
-                    <input type="file" id="audioFile" accept=".wav,.mp3,.ogg,.m4a" style="display: none;" onchange="updateFileName(this)">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="targetAccent">2. Select Target Accent</label>
+        <div class="controls">
+            <button id="startBtn" class="btn btn-start" onclick="startConversation()">Start Conversation</button>
+            <button id="stopBtn" class="btn btn-stop" onclick="stopConversation()" disabled>Stop</button>
+            
+            <div>
+                <label for="targetAccent">Target Accent:</label>
                 <select id="targetAccent">
                     <option value="Neutral North American">Neutral North American</option>
                     <option value="Standard British">Standard British</option>
                     <option value="Australian">Australian</option>
-                    <option value="Indian">Indian</option>
-                    <option value="Mandarin-inflected">Mandarin-inflected</option>
+                    <option value="Indian (General)">Indian (General)</option>
+                    <option value="Indian (Global/Neutral)">Indian (Global/Neutral)</option>
+                    <option value="Chinese (Mandarin-inflected)">Chinese (Mandarin-inflected)</option>
+                    <option value="Japanese (Standard)">Japanese (Standard)</option>
+                    <option value="European (French)">European (French)</option>
+                    <option value="European (German)">European (German)</option>
+                    <option value="European (Spanish)">European (Spanish)</option>
                 </select>
             </div>
-
-            <div class="form-group">
-                <label>3. Settings</label>
-                <div class="toggle-wrapper">
-                    <label class="switch">
-                        <input type="checkbox" id="preserveIdentity" checked>
-                        <span class="slider"></span>
-                    </label>
-                    <span>Preserve Speaker Identity</span>
-                </div>
-            </div>
-
-            <button id="equalizeBtn" class="btn-primary" onclick="processAudio()">Equalize Audio 🚀</button>
         </div>
 
-        <div class="results-section" id="resultsSection">
-            <div class="status-log" id="statusLog">
-                <div>Initializing...</div>
-            </div>
+        <div class="panel">
+            <h2>You (Input)</h2>
+            <div class="mic-icon" id="micIcon">🎤</div>
+            <div>Detected Accent:</div>
+            <div class="detected-accent" id="detectedAccent">Listening...</div>
+            <div class="status-display" id="inputStatus">Microphone Off</div>
+        </div>
 
-            <div class="audio-comparison">
-                <div class="audio-player">
-                    <h3>Original Audio</h3>
-                    <audio id="originalAudio" controls></audio>
-                </div>
-                <div class="audio-player">
-                    <h3>Equalized Audio</h3>
-                    <audio id="equalizedAudio" controls></audio>
-                </div>
-            </div>
+        <div class="panel">
+            <h2>Listener (Output)</h2>
+            <div class="mic-icon" style="color: var(--primary-color);">🎧</div>
+            <div>Output Accent:</div>
+            <div class="detected-accent" id="outputAccentDisplay">Neutral North American</div>
+            <div class="status-display" id="outputStatus">Waiting for audio...</div>
+        </div>
+
+        <div class="log-area" id="logArea">
+            <div class="log-entry">System ready. Press Start to begin.</div>
         </div>
     </main>
 
     <script>
-        function updateFileName(input) {
-            const display = document.getElementById('fileNameDisplay');
-            if (input.files && input.files.length > 0) {
-                display.textContent = input.files[0].name;
+        const socket = io();
+        let mediaRecorder;
+        let audioContext;
+        let isRecording = false;
+
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const micIcon = document.getElementById('micIcon');
+        const inputStatus = document.getElementById('inputStatus');
+        const outputStatus = document.getElementById('outputStatus');
+        const detectedAccent = document.getElementById('detectedAccent');
+        const logArea = document.getElementById('logArea');
+        const targetAccentSelect = document.getElementById('targetAccent');
+        const outputAccentDisplay = document.getElementById('outputAccentDisplay');
+
+        targetAccentSelect.addEventListener('change', (e) => {
+            outputAccentDisplay.textContent = e.target.value;
+            log(`Target accent changed to: ${e.target.value}`);
+        });
+
+        socket.on('connect', () => {
+            log('Connected to server.');
+        });
+
+        socket.on('audio_response', (data) => {
+            // Play back the audio chunk
+            playAudioChunk(data.audio);
+            
+            // Update UI with detection results
+            detectedAccent.textContent = data.detected_accent;
+            outputStatus.textContent = "Playing converted audio...";
+            
+            // Reset status after a bit
+            setTimeout(() => {
+                outputStatus.textContent = "Waiting for audio...";
+            }, 1000);
+        });
+
+        function log(message) {
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            div.innerHTML = `<span class="log-time">[${time}]</span> ${message}`;
+            logArea.prepend(div);
+        }
+
+        async function startConversation() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 
-                // Preview original audio
-                const originalAudio = document.getElementById('originalAudio');
-                originalAudio.src = URL.createObjectURL(input.files[0]);
-            } else {
-                display.textContent = "Drag & Drop or Click to Upload (.wav, .mp3)";
+                mediaRecorder = new MediaRecorder(stream);
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0 && socket.connected) {
+                        // Send blob to server
+                        const reader = new FileReader();
+                        reader.onload = function() {
+                            const arrayBuffer = this.result;
+                            socket.emit('audio_stream', {
+                                audio: arrayBuffer,
+                                target_accent: targetAccentSelect.value
+                            });
+                        };
+                        reader.readAsArrayBuffer(event.data);
+                    }
+                };
+
+                // Record in smaller chunks (e.g., 250ms) for lower latency
+                mediaRecorder.start(250); 
+                isRecording = true;
+
+                // UI Updates
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                micIcon.classList.add('active');
+                inputStatus.textContent = "Recording...";
+                log("Microphone activated. Streaming started.");
+
+            } catch (err) {
+                console.error("Error accessing microphone:", err);
+                log("Error accessing microphone: " + err.message);
+                alert("Could not access microphone. Please ensure you have granted permission.");
             }
         }
 
-        async function processAudio() {
-            const fileInput = document.getElementById('audioFile');
-            const accentSelect = document.getElementById('targetAccent');
-            const identityToggle = document.getElementById('preserveIdentity');
-            const btn = document.getElementById('equalizeBtn');
-            const resultsSection = document.getElementById('resultsSection');
-            const statusLog = document.getElementById('statusLog');
-            const equalizedAudio = document.getElementById('equalizedAudio');
+        function stopConversation() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                isRecording = false;
 
-            if (!fileInput.files || fileInput.files.length === 0) {
-                alert("Please upload an audio file first.");
-                return;
+                // UI Updates
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                micIcon.classList.remove('active');
+                inputStatus.textContent = "Microphone Off";
+                detectedAccent.textContent = "Listening...";
+                log("Streaming stopped.");
             }
+        }
 
-            // UI Updates
-            btn.disabled = true;
-            btn.textContent = "Processing...";
-            resultsSection.style.display = "block";
-            statusLog.innerHTML = "<div>Starting upload...</div>";
+        function playAudioChunk(arrayBuffer) {
+            // Decode and play the audio
+            // Note: In a real streaming app, we'd use a SourceBuffer or AudioWorklet for smoother playback.
+            // For this MVP, we decode each chunk individually which might have gaps.
+            
+            if (!audioContext) return;
 
-            const formData = new FormData();
-            formData.append('audio_file', fileInput.files[0]);
-            formData.append('target_accent', accentSelect.value);
-            formData.append('preserve_identity', identityToggle.checked);
-
-            try {
-                const response = await fetch('/api/equalize', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    // Simulate real-time logging updates
-                    statusLog.innerHTML = "";
-                    if (data.logs) {
-                        data.logs.forEach((log, index) => {
-                            setTimeout(() => {
-                                const div = document.createElement('div');
-                                div.textContent = `> ${log}`;
-                                statusLog.appendChild(div);
-                            }, index * 800);
-                        });
-                    }
-
-                    // Set output audio source
-                    equalizedAudio.src = data.output_url;
-                    
-                    setTimeout(() => {
-                        btn.disabled = false;
-                        btn.textContent = "Equalize Audio 🚀";
-                        const successMsg = document.createElement('div');
-                        successMsg.style.color = 'green';
-                        successMsg.style.fontWeight = 'bold';
-                        successMsg.textContent = "> Process Complete!";
-                        statusLog.appendChild(successMsg);
-                    }, (data.logs ? data.logs.length * 800 : 0) + 500);
-
-                } else {
-                    statusLog.innerHTML = `<div style="color: red;">Error: ${data.error}</div>`;
-                    btn.disabled = false;
-                    btn.textContent = "Equalize Audio 🚀";
-                }
-
-            } catch (error) {
-                console.error('Error:', error);
-                statusLog.innerHTML = `<div style="color: red;">Network Error: ${error.message}</div>`;
-                btn.disabled = false;
-                btn.textContent = "Equalize Audio 🚀";
-            }
+            audioContext.decodeAudioData(arrayBuffer, (buffer) => {
+                const source = audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioContext.destination);
+                source.start(0);
+            }, (err) => {
+                console.error("Error decoding audio data:", err);
+            });
         }
     </script>
 </body>
