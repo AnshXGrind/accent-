@@ -33,9 +33,9 @@ function App() {
     }
 
     const recognition = new window.webkitSpeechRecognition();
-    recognition.lang = inputLanguage;
+    recognition.lang = inputLanguage; // Will be overridden if auto-detect works, but good fallback
     recognition.continuous = false;
-    recognition.interimResults = true; // Enable interim results for visual feedback
+    recognition.interimResults = true;
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -141,10 +141,16 @@ function App() {
             <select value={inputLanguage} onChange={(e) => setInputLanguage(e.target.value)}>
               <option value="en-US">English (US)</option>
               <option value="en-GB">English (UK)</option>
-              <option value="es-ES">Spanish</option>
+              <option value="en-AU">English (Australia)</option>
+              <option value="es-ES">Spanish (Spain)</option>
+              <option value="es-MX">Spanish (Mexico)</option>
               <option value="fr-FR">French</option>
               <option value="de-DE">German</option>
+              <option value="it-IT">Italian</option>
+              <option value="pt-BR">Portuguese (Brazil)</option>
               <option value="hi-IN">Hindi</option>
+              <option value="ja-JP">Japanese</option>
+              <option value="zh-CN">Chinese (Simplified)</option>
             </select>
           </div>
 
@@ -153,9 +159,15 @@ function App() {
             <select value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)}>
               <option value="English (US)">English (US)</option>
               <option value="English (UK)">English (UK)</option>
+              <option value="English (AU)">English (Australia)</option>
               <option value="Spanish">Spanish</option>
               <option value="French">French</option>
               <option value="German">German</option>
+              <option value="Italian">Italian</option>
+              <option value="Portuguese">Portuguese</option>
+              <option value="Hindi">Hindi</option>
+              <option value="Japanese">Japanese</option>
+              <option value="Chinese">Chinese</option>
             </select>
           </div>
 
