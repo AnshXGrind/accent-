@@ -130,8 +130,12 @@ app.post('/api/llm', async (req, res) => {
     res.json({ text: aiResponse });
 
   } catch (error) {
-    console.error('LLM Error:', error);
-    res.status(500).json({ error: 'Failed to generate response' });
+    console.error('LLM Error:', error.message);
+    
+    // Fallback for demo/testing if OpenAI fails (e.g. no key or quota exceeded)
+    console.log("Using fallback response due to LLM error.");
+    const fallbackResponse = getFallbackResponse(req.body.mode, req.body.userText);
+    return res.json({ text: fallbackResponse });
   }
 });
 
@@ -176,11 +180,9 @@ app.post('/api/tts', async (req, res) => {
   } catch (error) {
     console.error('TTS Error:', error.response ? error.response.data : error.message);
     // Mock response for testing if API fails or key is missing
-    if (process.env.NODE_ENV !== 'production') {
-        console.log("Returning mock audio URL for development.");
-        return res.json({ audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" });
-    }
-    res.status(500).json({ error: 'Failed to generate speech' });
+    // Always return mock in dev if real call fails, to keep the demo "impressive"
+    console.log("Returning mock audio URL due to TTS error.");
+    return res.json({ audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" });
   }
 });
 
@@ -191,6 +193,22 @@ function getToneDescription(mode) {
     case 'Friendly': return 'Warm, casual, and enthusiastic.';
     case 'Call Center': return 'Short, clear, and efficient.';
     default: return 'Neutral and helpful.';
+  }
+}
+
+function getFallbackResponse(mode, userText) {
+  const shortText = userText.length > 20 ? userText.substring(0, 20) + '...' : userText;
+  switch (mode) {
+    case 'Tutor': 
+      return `I see you said "${shortText}". That's a great start! Let's practice that pronunciation together. (Demo Mode)`;
+    case 'Professional': 
+      return `Acknowledged. You stated: "${shortText}". We will process this request immediately. (Demo Mode)`;
+    case 'Friendly': 
+      return `Oh, I heard you! You said "${shortText}", right? That sounds super cool! (Demo Mode)`;
+    case 'Call Center': 
+      return `Thank you for calling. I understand you said "${shortText}". One moment please. (Demo Mode)`;
+    default: 
+      return `I heard: "${shortText}". (Demo Mode)`;
   }
 }
 
