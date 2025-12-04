@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accent Equalizer - One Voice. Every Accent.</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f7fa;
+            --text-color: #333;
+            --accent-color: #2c3e50;
+            --success-color: #27ae60;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--accent-color);
+            color: white;
+            width: 100%;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 300;
+        }
+
+        .tagline {
+            font-size: 1.1rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
+        }
+
+        main {
+            width: 90%;
+            max-width: 800px;
+            background: white;
+            margin-top: -30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-weight: 600;
+            color: var(--accent-color);
+        }
+
+        .file-upload-wrapper {
+            border: 2px dashed #ccc;
+            padding: 2rem;
+            text-align: center;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .file-upload-wrapper:hover {
+            border-color: var(--primary-color);
+        }
+
+        select, input[type="file"] {
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .toggle-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 1rem;
+            font-size: 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-weight: bold;
+            margin-top: 1rem;
+        }
+
+        .btn-primary:hover {
+            background-color: #357abd;
+        }
+
+        .btn-primary:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .results-section {
+            border-top: 1px solid #eee;
+            padding-top: 2rem;
+            display: none; /* Hidden by default */
+        }
+
+        .status-log {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .audio-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .audio-player {
+            text-align: center;
+        }
+
+        .audio-player h3 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: var(--accent-color);
+        }
+
+        audio {
+            width: 100%;
+        }
+
+        @media (max-width: 600px) {
+            .audio-comparison {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Accent Equalizer</h1>
+        <div class="tagline">One Voice. Every Accent.</div>
+    </header>
+
+    <main>
+        <div class="control-panel">
+            <div class="form-group">
+                <label for="audioFile">1. Upload Audio</label>
+                <div class="file-upload-wrapper" onclick="document.getElementById('audioFile').click()">
+                    <p id="fileNameDisplay">Drag & Drop or Click to Upload (.wav, .mp3)</p>
+                    <input type="file" id="audioFile" accept=".wav,.mp3,.ogg,.m4a" style="display: none;" onchange="updateFileName(this)">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="targetAccent">2. Select Target Accent</label>
+                <select id="targetAccent">
+                    <option value="Neutral North American">Neutral North American</option>
+                    <option value="Standard British">Standard British</option>
+                    <option value="Australian">Australian</option>
+                    <option value="Indian">Indian</option>
+                    <option value="Mandarin-inflected">Mandarin-inflected</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>3. Settings</label>
+                <div class="toggle-wrapper">
+                    <label class="switch">
+                        <input type="checkbox" id="preserveIdentity" checked>
+                        <span class="slider"></span>
+                    </label>
+                    <span>Preserve Speaker Identity</span>
+                </div>
+            </div>
+
+            <button id="equalizeBtn" class="btn-primary" onclick="processAudio()">Equalize Audio 🚀</button>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <div class="status-log" id="statusLog">
+                <div>Initializing...</div>
+            </div>
+
+            <div class="audio-comparison">
+                <div class="audio-player">
+                    <h3>Original Audio</h3>
+                    <audio id="originalAudio" controls></audio>
+                </div>
+                <div class="audio-player">
+                    <h3>Equalized Audio</h3>
+                    <audio id="equalizedAudio" controls></audio>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function updateFileName(input) {
+            const display = document.getElementById('fileNameDisplay');
+            if (input.files && input.files.length > 0) {
+                display.textContent = input.files[0].name;
+                
+                // Preview original audio
+                const originalAudio = document.getElementById('originalAudio');
+                originalAudio.src = URL.createObjectURL(input.files[0]);
+            } else {
+                display.textContent = "Drag & Drop or Click to Upload (.wav, .mp3)";
+            }
+        }
+
+        async function processAudio() {
+            const fileInput = document.getElementById('audioFile');
+            const accentSelect = document.getElementById('targetAccent');
+            const identityToggle = document.getElementById('preserveIdentity');
+            const btn = document.getElementById('equalizeBtn');
+            const resultsSection = document.getElementById('resultsSection');
+            const statusLog = document.getElementById('statusLog');
+            const equalizedAudio = document.getElementById('equalizedAudio');
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert("Please upload an audio file first.");
+                return;
+            }
+
+            // UI Updates
+            btn.disabled = true;
+            btn.textContent = "Processing...";
+            resultsSection.style.display = "block";
+            statusLog.innerHTML = "<div>Starting upload...</div>";
+
+            const formData = new FormData();
+            formData.append('audio_file', fileInput.files[0]);
+            formData.append('target_accent', accentSelect.value);
+            formData.append('preserve_identity', identityToggle.checked);
+
+            try {
+                const response = await fetch('/api/equalize', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Simulate real-time logging updates
+                    statusLog.innerHTML = "";
+                    if (data.logs) {
+                        data.logs.forEach((log, index) => {
+                            setTimeout(() => {
+                                const div = document.createElement('div');
+                                div.textContent = `> ${log}`;
+                                statusLog.appendChild(div);
+                            }, index * 800);
+                        });
+                    }
+
+                    // Set output audio source
+                    equalizedAudio.src = data.output_url;
+                    
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.textContent = "Equalize Audio 🚀";
+                        const successMsg = document.createElement('div');
+                        successMsg.style.color = 'green';
+                        successMsg.style.fontWeight = 'bold';
+                        successMsg.textContent = "> Process Complete!";
+                        statusLog.appendChild(successMsg);
+                    }, (data.logs ? data.logs.length * 800 : 0) + 500);
+
+                } else {
+                    statusLog.innerHTML = `<div style="color: red;">Error: ${data.error}</div>`;
+                    btn.disabled = false;
+                    btn.textContent = "Equalize Audio 🚀";
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                statusLog.innerHTML = `<div style="color: red;">Network Error: ${error.message}</div>`;
+                btn.disabled = false;
+                btn.textContent = "Equalize Audio 🚀";
+            }
+        }
+    </script>
+</body>
+</html>
