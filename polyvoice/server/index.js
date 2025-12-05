@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 const { OpenAI } = require('openai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 dotenv.config();
 
@@ -32,7 +33,26 @@ if (process.env.OPENAI_KEY) {
     console.warn("Failed to initialize OpenAI client:", error.message);
   }
 } else {
-  console.warn("WARNING: OPENAI_KEY is missing. LLM features will run in DEMO MODE (mock responses).");
+  console.warn("WARNING: OPENAI_KEY is missing.");
+}
+
+// Initialize Gemini
+let genAI;
+let geminiModel;
+if (process.env.GEMINI_API_KEY) {
+  try {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    geminiModel = genAI.getGenerativeModel({ model: "gemini-pro" });
+    console.log("Gemini (Google Generative AI) initialized successfully.");
+  } catch (error) {
+    console.warn("Failed to initialize Gemini client:", error.message);
+  }
+} else {
+  console.warn("WARNING: GEMINI_API_KEY is missing.");
+}
+
+if (!openai && !genAI) {
+  console.warn("CRITICAL: No LLM keys found. App will run in DEMO MODE.");
 }
 
 // --- MAPPINGS ---
@@ -176,10 +196,16 @@ app.post('/api/llm', async (req, res) => {
         max_tokens: 150,
       });
       aiResponse = completion.choices[0].message.content;
+    } else if (geminiModel) {
+      // Use Gemini if OpenAI is missing
+      const prompt = `${systemPrompt}\n\nUser: ${userText}`;
+      const result = await geminiModel.generateContent(prompt);
+      const response = await result.response;
+      aiResponse = response.text();
     } else {
       // Fallback / Demo Mode if OpenAI key is missing
       console.log("Demo Mode: Generating mock response for:", userText);
-      aiResponse = `[DEMO MODE] I heard you say: "${userText}". Since I don't have an OpenAI key, I'm just echoing this back. Please add OPENAI_KEY to your .env file to enable real AI responses!`;
+      aiResponse = `[DEMO MODE] I heard you say: "${userText}". Since I don't have an OpenAI or Gemini key, I'm just echoing this back. Please add OPENAI_KEY or GEMINI_API_KEY to your .env file!`;
       
       // Simple logic for "pronunciation" keyword to show off the UI
       if (userText.toLowerCase().includes('pronounce') || userText.toLowerCase().includes('pronunciation')) {
