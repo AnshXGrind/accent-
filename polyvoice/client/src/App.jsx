@@ -22,8 +22,6 @@ function App() {
   }, [autoGenerate]);
 
   // Determine API Base URL
-  // In development: uses Vite proxy (redirects /api -> localhost:5000)
-  // In production: set VITE_API_URL env var to your backend URL (e.g., https://my-backend.vercel.app)
   const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
   const startListening = () => {
